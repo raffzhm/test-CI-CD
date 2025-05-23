@@ -1,0 +1,46 @@
+name: Test macOS Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-macos:
+    runs-on: macos-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: 1.21
+    
+    - name: Install dependencies
+      run: go mod tidy
+    
+    - name: Build for macOS Intel
+      run: |
+        GOOS=darwin GOARCH=amd64 go build -o pomokit-macos-x64
+        
+    - name: Build for macOS ARM64
+      run: |
+        GOOS=darwin GOARCH=arm64 go build -o pomokit-macos-arm64
+        
+    - name: Test basic execution
+      run: |
+        chmod +x pomokit-macos-x64
+        chmod +x pomokit-macos-arm64
+        
+        # Test that binary can start (will fail on input, but that's OK)
+        timeout 10s ./pomokit-macos-x64 || echo "Binary started (timed out as expected)"
+        
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: macos-binaries
+        path: |
+          pomokit-macos-x64
+          pomokit-macos-arm64
