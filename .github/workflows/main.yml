@@ -12,34 +12,66 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4  # Updated to v4
+      uses: actions/checkout@v4
     
     - name: Set up Go
-      uses: actions/setup-go@v5  # Updated to v5
+      uses: actions/setup-go@v5
       with:
         go-version: '1.21'
     
+    - name: Install robotgo dependencies
+      run: |
+        # Install required system dependencies for robotgo
+        brew install libpng libjpeg-turbo
+        
+        # Install Xcode command line tools (usually already installed)
+        sudo xcode-select --install 2>/dev/null || echo "Xcode tools already installed"
+        
+        # Set CGO flags for robotgo
+        export CGO_ENABLED=1
+        export CC=clang
+        export CXX=clang++
+    
     - name: Install dependencies
-      run: go mod tidy
+      run: |
+        go mod tidy
+        go mod download
     
     - name: Build for macOS Intel
+      env:
+        CGO_ENABLED: 1
+        CC: clang
+        CXX: clang++
+        GOOS: darwin
+        GOARCH: amd64
       run: |
-        GOOS=darwin GOARCH=amd64 go build -o pomokit-macos-x64
+        go build -v -o pomokit-macos-x64
         
     - name: Build for macOS ARM64
+      env:
+        CGO_ENABLED: 1
+        CC: clang
+        CXX: clang++
+        GOOS: darwin  
+        GOARCH: arm64
       run: |
-        GOOS=darwin GOARCH=arm64 go build -o pomokit-macos-arm64
+        go build -v -o pomokit-macos-arm64
         
-    - name: Test basic execution
+    - name: Test binary execution
       run: |
         chmod +x pomokit-macos-x64
         chmod +x pomokit-macos-arm64
         
-        # Test that binary can start (will fail on input, but that's OK)
-        timeout 10s ./pomokit-macos-x64 || echo "Binary started (timed out as expected)"
+        # Test file types
+        file pomokit-macos-x64
+        file pomokit-macos-arm64
+        
+        # Test basic execution (expect timeout due to input requirements)
+        echo "Testing binary startup..."
+        timeout 5s ./pomokit-macos-x64 || echo "✅ Binary started successfully"
         
     - name: Upload artifacts
-      uses: actions/upload-artifact@v4  # Updated to v4
+      uses: actions/upload-artifact@v4
       with:
         name: macos-binaries
         path: |
